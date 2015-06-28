@@ -1,17 +1,10 @@
 
 var oldContent;
-
-var infoDiv ;
-
 var cursorX;
 var cursorY;
 
 var  entitiesMap = {};
 var  titles = [];
-
-var inputArea;  
-var highlighter;  
-var copyDiv;  
  
 var spans ;
 var rects ;
@@ -66,7 +59,7 @@ function initInputArea() {
     }
   //  observe(text, 'change',  resize);
     observe(text, 'cut',     delayedResize);
-    observe(text, 'paste',   delayedResize);
+ //   observe(text, 'paste',   delayedResize);
     observe(text, 'drop',    delayedResize);
     observe(text, 'keydown', delayedResize);
     
@@ -74,11 +67,9 @@ function initInputArea() {
 }
 
 function adjustHighlighter(){   
- //   console.log(inputArea.offsetLeft);
-    highlighter.style.left = inputArea.offsetLeft+"px";
-    highlighter.style.top = inputArea.offsetTop+"px";
-    highlighter.style.height = inputArea.offsetHeight+"px";
-    highlighter.style.width = inputArea.offsetWidth+"px";
+    $('#highlighter').offset($('#inputArea').offset()); 
+    $('#highlighter').height($('#inputArea').height());
+    $('#highlighter').width($('#inputArea').width());
 }
 
 function initEntites(){
@@ -102,47 +93,38 @@ function initEntites(){
 
 function processBrowers(){
     if ( browser.name == "Firefox" ){
-        inputArea.style.whiteSpace = "pre-wrap";
-        highlighter.style.whiteSpace = "pre-wrap";
-        copyDiv.style.whiteSpace = "pre-wrap";
-    } 
+        $('#inputArea').css("whiteSpace" , "pre-wrap" );
+        $('#highlighter').css("whiteSpace" , "pre-wrap" );
+        $('#copyDiv').css("whiteSpace" , "pre-wrap" );
+    }     
+    console.log($.support );
 }
     
 $(document).ready(function() {
     initEntites();
-    inputArea= $("#inputArea")[0];
-    highlighter = $("#highlighter")[0];
-    copyDiv = $("#copy")[0];
-    infoDiv = $("#info")[0];    
-    
-    $("#info").hide();
-            
-    initInputArea();   
-    adjustHighlighter();
     processBrowers();
+    $("#info").hide();            
+    initInputArea();   
+    adjustHighlighter();    
     
-    $("#inputArea").css('height', 'auto');
-    inputArea.style.height = inputArea.scrollHeight+'px';    
-    console.log($("#inputArea").prop("scrollHeight"), $("#inputArea").attr("scrollHeight") );
+    $("#inputArea").css('height', 'auto');   
+    $("#inputArea").height($("#inputArea").prop("scrollHeight"));
             
     txtChange();
-    oldContent = inputArea.value;   
+    oldContent = $("#inputArea").val();      
     
     setInterval( function(){  
         bigSearch=true; 
         }, 2000);  
         
     setInterval( function(){  
-        bigSearch=true; 
-        txtChange();
-        }, 8000);  
-   
-        
+            bigSearch=true; 
+            txtChange();
+            }, 8000);   
         });    
-        
 
- function txtClick(evt){             
-       
+$('#inputArea').click( function (evt) {
+       // console.log("evt = ", evt, evt.clientX );
         var x = evt.clientX, y = evt.clientY;
         $('#highlighter').css("pointerEvents", "auto");
         ele = document.elementFromPoint(x, y);
@@ -153,23 +135,42 @@ $(document).ready(function() {
              var eid = ele.getAttribute("data-entity-id");
              clickHighlight(eid);
         }
-}         
-           
+    } );   
+
+$("#inputArea").on('input', function() {
+    txtChange();
+    });           
 
 function txtChange(){
-    var content = inputArea.value;
+    var content = $("#inputArea").val(); 
  //   console.log(content);
     
-    showInOthers(content);
+    if ( oldContent == content )
+        return;    
+    oldContent = content;
+    var ranges = [];
+    var found = [];
+    var tmpTitles = (bigSearch)? titles:smallTitles;
+        
+    var newContent =  content;
+    newContent = getShowText(content, tmpTitles,  ranges, found);   
+    
+    $('#highlighter').html(newContent);
+    $('#copy').html(newContent);
+    
+    if (bigSearch ) {
+        bigSearch = false;
+        addToSmallTitles(found);
+    }
+    
     scanHigh();
 }
 
-function scanHigh(){
-  //  console.log(highlighter.children); 
+function scanHigh(){   
     spans = [];
-    
-    for (var i =0 ; i< highlighter.children.length ;i++) {
-        var ele = highlighter.children[i];
+    var children = $('#highlighter').children();
+    for (var i =0 ; i< children.length ;i++) {
+        var ele = children[i];
         var name = ele.tagName;
      //    console.log(name);
         if ( name == "SPAN") {
@@ -180,12 +181,12 @@ function scanHigh(){
     rects = []; 
 }
 
-function txtMouseover(evt){    
+$('#inputArea').mousemove( function (evt){    
    
-    var offX = evt.offsetX==undefined? evt.layerX: evt.offsetX;
-    var offY = evt.offsetY==undefined? evt.layerY: evt.offsetY;
-    
-   // console.log(offX, offY);
+    var offX = evt.offsetX==undefined? evt.originalEvent.layerX: evt.offsetX;
+    var offY = evt.offsetY==undefined? evt.originalEvent.layerY: evt.offsetY;
+   
+  //  console.log(offX, offY);
     var foundSpan = false;
     var span ;
     for (var i =0 ; i< spans.length ;i++) {
@@ -206,20 +207,27 @@ function txtMouseover(evt){
     } else {
         hideInfo();
     }
-}
+} );
 
 function showInfo(span){
   //  console.log(span);
     curSpan = span;
     var eid = span.getAttribute("data-entity-id");
   //  console.log(eid);
-    overHighlight(eid); 
-    $('#info').show();   
+   
+    var entity = entitydb[eid];   
+  //  console.log("mouse over >>" + entity.title);  
+    $('#title').html('<h3>' + entity.title +'</h3>');
+    $("#desc").html(entity.description) ;
+    $('#pic').attr("src", entity.image);
+    $('#pic').hide();    
+    
+    $('#info').fadeIn();   
 }
 
 function hideInfo(){
     curSpan = null;
-    $("#info").hide();
+    $("#info").fadeOut();
 }
 
 function addToSmallTitles(found) {
@@ -241,30 +249,7 @@ function addToSmallTitles(found) {
              return a - b;
          } 
      });          
-}
-            
-function showInOthers(content){
-    if ( oldContent == content )
-        return;    
-    oldContent = content;
-    var ranges = [];
-    var found = [];
-    var tmpTitles = (bigSearch)? titles:smallTitles;
-    
-    var newContent =  content;
-    newContent = getShowText(content, tmpTitles,  ranges, found);   
-    
-    
-    highlighter.innerHTML =   newContent;
-    copy.innerHTML =   newContent;
-    
-    if (bigSearch ) {
-        bigSearch = false;
-        addToSmallTitles(found);
-    }
-};
-
- 
+}    
 
 function getShowText(content, tmpTitles,  ranges, found){
     
@@ -294,8 +279,7 @@ function replaceEntity(content, found ){
         var str1 = content.substring(p,range[0] );
         newContent +=str1;
         var oriTitle = content.substring( range[0],range[1] );
-        var eid = entitiesMap[title];
-      //  var event = 'onmouseout="outHighlight()" onclick="clickHighlight('+eid+')"  onmouseover="overHighlight('+eid+')"';
+        var eid = entitiesMap[title];      
         var span = '<span class="entity" '  + ' data-entity-id="' + eid + '" >' + oriTitle + '</span>';
         newContent += span;
         p = range[1];
@@ -350,20 +334,6 @@ function clickHighlight(eid) {
     var win = window.open(url, '_blank');
     win.focus();
 }
-
-function overHighlight(eid) {
-    var entity = entitydb[eid];   
-  //  console.log("mouse over >>" + entity.title);  
-    $('#title').html('<h3>' + entity.title +'</h3>');
-    $("#desc").html(entity.description) ;
-    $('#pic').attr("src", entity.image);
-    $('#pic').hide();      
-}
-        
-$("#msg").click(function(){
-    console.log("msg click")
-});  
-
 
 $('#pic').load( function() {  
    $('#pic').show();
