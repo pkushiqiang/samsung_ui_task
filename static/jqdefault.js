@@ -128,12 +128,12 @@
 
         setInterval(function() {
             bigSearch = true;
-        }, 2000);
+        }, 3000);
 
         setInterval(function() {
             bigSearch = true;
-            txtChange();
-        }, 8000);
+            txtChange(true);
+        }, 10000);
     });
 
     $('#inputArea').click(function(evt) {
@@ -155,11 +155,18 @@
         txtChange();
     });
 
-    function txtChange() {
+    $("#inputArea").on('blur', function() {
+        //   console.log("onblur");
+        bigSearch = true;
+        txtChange(true);
+    });
+
+
+    function txtChange(force) {
         var content = $("#inputArea").val();
         //   console.log(content);
 
-        if (oldContent == content)
+        if (!force && oldContent == content)
             return;
         oldContent = content;
         var ranges = [];
